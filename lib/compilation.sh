@@ -31,11 +31,13 @@ compile_atf()
 		(cd "${SRC}/cache/sources/${ATFSOURCEDIR}"; make distclean > /dev/null 2>&1)
 	fi
 
+	# ebin needs to know where is u-boot when making atf
+	[[ $BOARD == espressobin ]] && ubootdir="$SRC/cache/sources/$BOOTSOURCEDIR"
+
 	if [[ $USE_OVERLAYFS == yes ]]; then
-		local atfdir
 		atfdir=$(overlayfs_wrapper "wrap" "$SRC/cache/sources/$ATFSOURCEDIR" "atf_${LINUXFAMILY}_${BRANCH}")
 	else
-		local atfdir="$SRC/cache/sources/$ATFSOURCEDIR"
+		atfdir="$SRC/cache/sources/$ATFSOURCEDIR"
 	fi
 	cd "$atfdir" || exit
 
@@ -77,9 +79,10 @@ compile_atf()
 
 	[[ ${PIPESTATUS[0]} -ne 0 ]] && exit_with_error "ATF compilation failed"
 
-	[[ $(type -t atf_custom_postprocess) == function ]] && atf_custom_postprocess
-
 	atftempdir=$(mktemp -d)
+	trap "rm -rf $atftempdir" EXIT
+
+	[[ $(type -t atf_custom_postprocess) == function ]] && atf_custom_postprocess
 
 	# copy files to temp directory
 	for f in $target_files; do
@@ -112,10 +115,9 @@ compile_uboot()
 	fi
 
 	if [[ $USE_OVERLAYFS == yes ]]; then
-		local ubootdir
 		ubootdir=$(overlayfs_wrapper "wrap" "$SRC/cache/sources/$BOOTSOURCEDIR" "u-boot_${LINUXFAMILY}_${BRANCH}")
 	else
-		local ubootdir="$SRC/cache/sources/$BOOTSOURCEDIR"
+		ubootdir="$SRC/cache/sources/$BOOTSOURCEDIR"
 	fi
 	cd "${ubootdir}" || exit
 
@@ -144,6 +146,8 @@ compile_uboot()
 
 	# create directory structure for the .deb package
 	uboottempdir=$(mktemp -d)
+#	trap "rm -rf $uboottempdir" EXIT
+
 	local uboot_name=${CHOSEN_UBOOT}_${REVISION}_${ARCH}
 	rm -rf $uboottempdir/$uboot_name
 	mkdir -p $uboottempdir/$uboot_name/usr/lib/{u-boot,$uboot_name} $uboottempdir/$uboot_name/DEBIAN
@@ -161,7 +165,7 @@ compile_uboot()
 
 		if [[ $CLEAN_LEVEL == *make* ]]; then
 			display_alert "Cleaning" "$BOOTSOURCEDIR" "info"
-			(cd "${SRC}/cache/sources/${BOOTSOURCEDIR}"; make clean > /dev/null 2>&1)
+			(cd ${ubootdir}; make clean > /dev/null 2>&1)
 		fi
 
 		advanced_patch "u-boot" "$BOOTPATCHDIR" "$BOARD" "$target_patchdir" "$BRANCH" "${LINUXFAMILY}-${BOARD}-${BRANCH}"
@@ -169,7 +173,7 @@ compile_uboot()
 		# create patch for manual source changes
 		[[ $CREATE_PATCHES == yes ]] && userpatch_create "u-boot"
 
-		if [[ -n $ATFSOURCE ]]; then			
+		if [[ -n $ATFSOURCE ]]; then
 			cp -Rv "${atftempdir}"/*.bin .
 			rm -rf "${atftempdir}"
 		fi
@@ -275,22 +279,24 @@ compile_uboot()
 
 	[[ ! -f $uboottempdir/${uboot_name}.deb ]] && exit_with_error "Building u-boot package failed"
 
-	mv "$uboottempdir/${uboot_name}.deb" "${DEB_STORAGE}/"
+	rsync --progress --remove-source-files "$uboottempdir/${uboot_name}.deb" "${DEB_STORAGE}/"
 }
 
 compile_kernel()
 {
-	if [[ $CLEAN_LEVEL == *make* ]]; then
-		display_alert "Cleaning" "$LINUXSOURCEDIR" "info"
-		(cd "${SRC}/cache/sources/${LINUXSOURCEDIR}"; make ARCH="${ARCHITECTURE}" clean >/dev/null 2>&1)
-	fi
-
 	if [[ $USE_OVERLAYFS == yes ]]; then
 		local kerneldir
 		kerneldir=$(overlayfs_wrapper "wrap" "$SRC/cache/sources/$LINUXSOURCEDIR" "kernel_${LINUXFAMILY}_${BRANCH}")
+		export CCACHE_DIR=${RAMCCACHE}
 	else
 		local kerneldir="$SRC/cache/sources/$LINUXSOURCEDIR"
 	fi
+
+        if [[ $CLEAN_LEVEL == *make* ]]; then
+                display_alert "Cleaning" "$LINUXSOURCEDIR" "info"
+                (cd "${kerneldir}"; make ARCH="${ARCHITECTURE}" clean >/dev/null 2>&1)
+        fi
+
 	cd "${kerneldir}" || exit
 
 	if ! grep -qoE '^-rc[[:digit:]]+' <(grep "^EXTRAVERSION" Makefile | head -1 | awk '{print $(NF)}'); then
@@ -303,7 +309,7 @@ compile_kernel()
 	version=$(grab_version "$kerneldir")
 
 	# read kernel git hash
-	hash=$(improved_git --git-dir="$kerneldir"/.git rev-parse HEAD)
+	hash=$(git --git-dir="$kerneldir"/.git rev-parse HEAD)
 
 	# build 3rd party drivers
 	compilation_prepare
@@ -319,9 +325,9 @@ compile_kernel()
 
 	# create linux-source package - with already patched sources
 	local sources_pkg_dir=$(mktemp -d)/${CHOSEN_KSRC}_${REVISION}_all
-	rm -rf "${sources_pkg_dir}"
+#	trap "rm -rf $sources_pkg_dir" EXIT
 	mkdir -p "${sources_pkg_dir}"/usr/src/ "${sources_pkg_dir}/usr/share/doc/linux-source-${version}-${LINUXFAMILY}" "${sources_pkg_dir}"/DEBIAN
-
+	cd 
 	if [[ $BUILD_KSRC != no ]]; then
 		display_alert "Compressing sources for the linux-source package"
 		tar cp --directory="$kerneldir" --exclude='./.git/' --owner=root . \
@@ -329,7 +335,7 @@ compile_kernel()
 			| pixz -4 > "${sources_pkg_dir}/usr/src/linux-source-${version}-${LINUXFAMILY}.tar.xz"
 		cp COPYING "${sources_pkg_dir}/usr/share/doc/linux-source-${version}-${LINUXFAMILY}/LICENSE"
 	fi
-
+	cd "${kerneldir}" || exit
 	display_alert "Compiling $BRANCH kernel" "$version" "info"
 
 	local toolchain
@@ -419,7 +425,7 @@ compile_kernel()
 	# produce deb packages: image, headers, firmware, dtb
 	echo -e "\n\t== deb packages: image, headers, firmware, dtb ==\n" >> "${DEST}"/debug/compilation.log
 	eval CCACHE_BASEDIR="$(pwd)" env PATH="${toolchain}:${PATH}" \
-		'make -j1 $kernel_packing \
+		'make $CTHREADS $kernel_packing \
 		KDEB_PKGVERSION=$REVISION \
 		BRANCH=$BRANCH \
 		LOCALVERSION="-${LINUXFAMILY}" \
@@ -447,14 +453,14 @@ compile_kernel()
 
 	if [[ $BUILD_KSRC != no ]]; then
 		fakeroot dpkg-deb -z0 -b "${sources_pkg_dir}" "${sources_pkg_dir}.deb"
-		mv "${sources_pkg_dir}.deb" "${DEB_STORAGE}/"
+		rsync --progress --remove-source-files "${sources_pkg_dir}.deb" "${DEB_STORAGE}/"
 	fi
 	rm -rf "${sources_pkg_dir}"
 
 	cd .. || exit
 	# remove firmare image packages here - easier than patching ~40 packaging scripts at once
 	rm -f linux-firmware-image-*.deb
-	mv ./*.deb "${DEB_STORAGE}/" || exit_with_error "Failed moving kernel DEBs"
+	rsync --progress --remove-source-files *.deb "${DEB_STORAGE}/" || exit_with_error "Failed moving kernel DEBs"
 
 	# store git hash to the file
 	echo "${hash}" > "${SRC}/cache/hash"$([[ ${BETA} == yes ]] && echo "-beta")"/linux-image-${BRANCH}-${LINUXFAMILY}.githash"
@@ -479,7 +485,7 @@ compile_firmware()
 	fi
 
 	firmwaretempdir=$(mktemp -d)
-
+	trap "rm -rf $firmwaretempdir" EXIT
 	local plugin_dir="armbian-firmware${FULL}"
 	mkdir -p "${firmwaretempdir}/${plugin_dir}/lib/firmware"
 
@@ -515,9 +521,8 @@ compile_firmware()
 	# pack
 	mv "armbian-firmware${FULL}" "armbian-firmware${FULL}_${REVISION}_all"
 	fakeroot dpkg -b "armbian-firmware${FULL}_${REVISION}_all" >> "${DEST}"/debug/install.log 2>&1
-	mv "armbian-firmware${FULL}_${REVISION}_all" "armbian-firmware${FULL}"
-	mv "armbian-firmware${FULL}_${REVISION}_all.deb" "${DEB_STORAGE}/"
-
+	rsync --progress --remove-source-files "armbian-firmware${FULL}_${REVISION}_all" "armbian-firmware${FULL}"
+	rsync --progress --remove-source-files "armbian-firmware${FULL}_${REVISION}_all.deb" "${DEB_STORAGE}/"
 	# remove temp directory
 	rm -rf "${firmwaretempdir}"
 }
@@ -529,7 +534,7 @@ compile_armbian-config()
 {
 
 	local tmpdir=$(mktemp -d)/armbian-config_${REVISION}_all
-
+	trap "rm -rf $tmpdir" EXIT
 	display_alert "Building deb" "armbian-config" "info"
 
 	fetch_from_repo "https://github.com/armbian/config" "armbian-config" "branch:master"
@@ -564,7 +569,7 @@ compile_armbian-config()
 	ln -sf /usr/sbin/softy "${tmpdir}"/usr/bin/softy
 
 	fakeroot dpkg -b "${tmpdir}" >/dev/null
-	mv "${tmpdir}.deb" "${DEB_STORAGE}/"
+	rsync --progress --remove-source-files "${tmpdir}.deb" "${DEB_STORAGE}/"
 	rm -rf "${tmpdir}"
 
 }
@@ -826,11 +831,19 @@ overlayfs_wrapper()
 	if [[ $operation == wrap ]]; then
 		local srcdir="$2"
 		local description="$3"
-		mkdir -p /tmp/overlay_components/ /tmp/armbian_build/
-		local tempdir workdir mergeddir
-		tempdir=$(mktemp -d --tmpdir="/tmp/overlay_components/")
-		workdir=$(mktemp -d --tmpdir="/tmp/overlay_components/")
-		mergeddir=$(mktemp -d --suffix="_$description" --tmpdir="/tmp/armbian_build/")
+		#toptempdir=$(mktemp -d)
+		#mkdir -p /tmp/overlay_components/ /tmp/armbian_build/
+		local toptempdir tempdir workdir mergeddir
+		tempdir=$(mktemp -d --tmpdir=$(mktemp -d))
+
+		#tempdir=$(mktemp -d)
+		#trap "rm -rf $tempdir" EXIT
+		workdir=$(mktemp -d --tmpdir=$(mktemp -d))
+		#workdir=$(mktemp -d)
+		#trap "rm -rf $workdir" EXIT
+		#mergeddir=$(mktemp -d --suffix="_$description" --tmpdir="/tmp/armbian_build/")
+		mergeddir=$(mktemp -d --suffix="_$description" --tmpdir=$(mktemp -d))
+		#trap "rm -rf $mergeddir" EXIT
 		mount -t overlay overlay -o lowerdir="$srcdir",upperdir="$tempdir",workdir="$workdir" "$mergeddir"
 		# this is executed in a subshell, so use temp files to pass extra data outside
 		echo "$tempdir" >> /tmp/.overlayfs_wrapper_cleanup

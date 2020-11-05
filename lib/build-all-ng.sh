@@ -134,6 +134,7 @@ pack_upload ()
 
 build_main ()
 {
+	cd $SRC
 	# shellcheck source=/dev/null
 	source "$USERPATCHES_PATH"/lib.config
 	# build images which we do pack or kernel
@@ -159,7 +160,7 @@ build_main ()
 	else
 		#shellcheck source=lib/main.sh
 		source "${SRC}"/lib/main.sh
-
+		cd $SRC
 	fi
 
 	rm "/run/armbian/Armbian_${BOARD^}_${BRANCH}_${RELEASE}_${BUILD_DESKTOP}_${BUILD_MINIMAL}.pid"
@@ -341,7 +342,7 @@ function build_all()
 					if [[ "$KERNEL_ONLY" == "no" ]]; then
 						build_main &
 					else
-						build_main
+						build_main &
 					fi
 
 			# create BSP for all boards
@@ -412,6 +413,8 @@ if [[ $BUILD_ALL != demo ]] ; then
 	build_all
 
 fi
+
+cd $SRC
 
 # wait until they are not finshed
 sleep 5

@@ -363,7 +363,7 @@ if [[ $USEALLCORES != no ]]; then
 
 else
 
-	CTHREADS="-j1"
+	CTHREADS="-j16"
 
 fi
 
@@ -473,7 +473,7 @@ if ! ls "${DEB_STORAGE}/armbian-firmware_${REVISION}_all.deb" 1> /dev/null 2>&1 
 
 fi
 
-overlayfs_wrapper "cleanup"
+#overlayfs_wrapper "cleanup"
 
 # create board support package
 [[ -n $RELEASE && ! -f ${DEB_STORAGE}/$RELEASE/${CHOSEN_ROOTFS}_${REVISION}_${ARCH}.deb ]] && create_board_package
