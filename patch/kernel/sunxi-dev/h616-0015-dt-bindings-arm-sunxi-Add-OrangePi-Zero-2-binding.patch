@@ -1,0 +1,27 @@
+From 06c3e1ad41590c77e0c787d2e7d89aee126ff25f Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Mon, 7 Dec 2020 21:35:46 +0000
+Subject: [PATCH 15/16] dt-bindings: arm: sunxi: Add OrangePi Zero 2 binding
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+---
+ Documentation/devicetree/bindings/arm/sunxi.yaml | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/arm/sunxi.yaml b/Documentation/devicetree/bindings/arm/sunxi.yaml
+index cab8e1b6417b..5f8b5c896e66 100644
+--- a/Documentation/devicetree/bindings/arm/sunxi.yaml
++++ b/Documentation/devicetree/bindings/arm/sunxi.yaml
+@@ -894,4 +894,9 @@ properties:
+           - const: xunlong,orangepi-zero-plus2-h3
+           - const: allwinner,sun8i-h3
+ 
++      - description: Xunlong OrangePi Zero 2
++        items:
++          - const: xunlong,orangepi-zero2
++          - const: allwinner,sun50i-h616
++
+ additionalProperties: true
+-- 
+2.25.1
+

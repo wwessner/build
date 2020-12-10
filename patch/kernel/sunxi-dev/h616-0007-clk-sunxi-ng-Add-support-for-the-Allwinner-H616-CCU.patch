@@ -1,8 +1,32 @@
+From 8dc5133ec1a60e2b65e262e425ce52a0585ff38a Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Fri, 27 Nov 2020 12:42:30 +0000
+Subject: [PATCH 07/16] clk: sunxi-ng: Add support for the Allwinner H616 CCU
+
+While the clocks are fairly similar to the H6, many differ in tiny
+details, so a separate clock driver seems indicated.
+
+Derived from the H6 clock driver, and adjusted according to the manual.
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+---
+ drivers/clk/sunxi-ng/Kconfig                |    5 +
+ drivers/clk/sunxi-ng/Makefile               |    1 +
+ drivers/clk/sunxi-ng/ccu-sun50i-h616.c      | 1150 +++++++++++++++++++
+ drivers/clk/sunxi-ng/ccu-sun50i-h616.h      |   56 +
+ include/dt-bindings/clock/sun50i-h616-ccu.h |  115 ++
+ include/dt-bindings/reset/sun50i-h616-ccu.h |   70 ++
+ 6 files changed, 1397 insertions(+)
+ create mode 100644 drivers/clk/sunxi-ng/ccu-sun50i-h616.c
+ create mode 100644 drivers/clk/sunxi-ng/ccu-sun50i-h616.h
+ create mode 100644 include/dt-bindings/clock/sun50i-h616-ccu.h
+ create mode 100644 include/dt-bindings/reset/sun50i-h616-ccu.h
+
 diff --git a/drivers/clk/sunxi-ng/Kconfig b/drivers/clk/sunxi-ng/Kconfig
-index ce5f5847d5d3..cd46d8853876 100644
+index feeb8d2074ee..cd46d8853876 100644
 --- a/drivers/clk/sunxi-ng/Kconfig
 +++ b/drivers/clk/sunxi-ng/Kconfig
-@@ -32,8 +32,13 @@  config SUN50I_H6_CCU
+@@ -32,6 +32,11 @@ config SUN50I_H6_CCU
  	default ARM64 && ARCH_SUNXI
  	depends on (ARM64 && ARCH_SUNXI) || COMPILE_TEST
  
@@ -12,16 +36,13 @@ index ce5f5847d5d3..cd46d8853876 100644
 +	depends on (ARM64 && ARCH_SUNXI) || COMPILE_TEST
 +
  config SUN50I_H6_R_CCU
--	bool "Support for the Allwinner H6 PRCM CCU"
-+	bool "Support for the Allwinner H6 and H616 PRCM CCU"
+ 	bool "Support for the Allwinner H6 and H616 PRCM CCU"
  	default ARM64 && ARCH_SUNXI
- 	depends on (ARM64 && ARCH_SUNXI) || COMPILE_TEST
- 
 diff --git a/drivers/clk/sunxi-ng/Makefile b/drivers/clk/sunxi-ng/Makefile
 index 3eb5cff40eac..96c324306d97 100644
 --- a/drivers/clk/sunxi-ng/Makefile
 +++ b/drivers/clk/sunxi-ng/Makefile
-@@ -26,6 +26,7 @@  obj-$(CONFIG_SUN50I_A64_CCU)	+= ccu-sun50i-a64.o
+@@ -26,6 +26,7 @@ obj-$(CONFIG_SUN50I_A64_CCU)	+= ccu-sun50i-a64.o
  obj-$(CONFIG_SUN50I_A100_CCU)	+= ccu-sun50i-a100.o
  obj-$(CONFIG_SUN50I_A100_R_CCU)	+= ccu-sun50i-a100-r.o
  obj-$(CONFIG_SUN50I_H6_CCU)	+= ccu-sun50i-h6.o
@@ -31,10 +52,10 @@ index 3eb5cff40eac..96c324306d97 100644
  obj-$(CONFIG_SUN5I_CCU)		+= ccu-sun5i.o
 diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h616.c b/drivers/clk/sunxi-ng/ccu-sun50i-h616.c
 new file mode 100644
-index 000000000000..3fbb258f0354
+index 000000000000..0e1cea2284f5
 --- /dev/null
 +++ b/drivers/clk/sunxi-ng/ccu-sun50i-h616.c
-@@ -0,0 +1,1134 @@ 
+@@ -0,0 +1,1150 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2020 Arm Ltd.
@@ -356,7 +377,7 @@ index 000000000000..3fbb258f0354
 +				       BIT(31),	/* gate */
 +				       CLK_SET_RATE_PARENT);
 +static SUNXI_CCU_M_WITH_GATE(gpu1_clk, "gpu1", "pll-periph0-2x", 0x674,
-+					0, 3,	/* M */
++					0, 2,	/* M */
 +					BIT(31),/* gate */
 +					0);
 +
@@ -592,7 +613,7 @@ index 000000000000..3fbb258f0354
 +static SUNXI_CCU_GATE(bus_audio_hub_clk, "bus-audio-hub", "apb1", 0xa6c, BIT(0), 0);
 +
 +/*
-+ * There are OHCI 12M clock source selection bits for 2 USB 2.0 ports.
++ * There are OHCI 12M clock source selection bits for the four USB 2.0 ports.
 + * We will force them to 0 (12M divided from 48M).
 + */
 +#define SUN50I_H616_USB0_CLK_REG		0xa70
@@ -610,7 +631,7 @@ index 000000000000..3fbb258f0354
 +static SUNXI_CCU_GATE(usb_phy2_clk, "usb-phy2", "osc24M", 0xa78, BIT(29), 0);
 +
 +static SUNXI_CCU_GATE(usb_ohci3_clk, "usb-ohci3", "osc12M", 0xa7c, BIT(31), 0);
-+static SUNXI_CCU_GATE(usb_phy3_clk, "usb-phy3", "osc12M", 0xa7c, BIT(29), 0);
++static SUNXI_CCU_GATE(usb_phy3_clk, "usb-phy3", "osc24M", 0xa7c, BIT(29), 0);
 +
 +static SUNXI_CCU_GATE(bus_ohci0_clk, "bus-ohci0", "ahb3", 0xa8c, BIT(0), 0);
 +static SUNXI_CCU_GATE(bus_ohci1_clk, "bus-ohci1", "ahb3", 0xa8c, BIT(1), 0);
@@ -623,8 +644,6 @@ index 000000000000..3fbb258f0354
 +static SUNXI_CCU_GATE(bus_otg_clk, "bus-otg", "ahb3", 0xa8c, BIT(8), 0);
 +
 +static SUNXI_CCU_GATE(bus_keyadc_clk, "bus-keyadc", "apb1", 0xa9c, BIT(0), 0);
-+
-+static struct clk_fixed_factor pll_periph0_4x_clk;
 +
 +static const char * const hdmi_parents[] = { "pll-video0", "pll-video0-4x",
 +					     "pll-video2", "pll-video2-4x" };
@@ -668,12 +687,19 @@ index 000000000000..3fbb258f0354
 +static SUNXI_CCU_GATE(bus_tcon_top_clk, "bus-tcon-top", "ahb3",
 +		      0xb5c, BIT(0), 0);
 +
-+static const char * const tcon_tv0_parents[] = { "pll-video0",
-+						 "pll-video0-4x",
-+						 "pll-video1",
-+						 "pll-video1-4x" };
++static const char * const tcon_tv_parents[] = { "pll-video0",
++						"pll-video0-4x",
++						"pll-video1",
++						"pll-video1-4x" };
 +static SUNXI_CCU_MP_WITH_MUX_GATE(tcon_tv0_clk, "tcon-tv0",
-+				  tcon_tv0_parents, 0xb80,
++				  tcon_tv_parents, 0xb80,
++				  0, 4,		/* M */
++				  8, 2,		/* P */
++				  24, 3,	/* mux */
++				  BIT(31),	/* gate */
++				  CLK_SET_RATE_PARENT);
++static SUNXI_CCU_MP_WITH_MUX_GATE(tcon_tv1_clk, "tcon-tv1",
++				  tcon_tv_parents, 0xb84,
 +				  0, 4,		/* M */
 +				  8, 2,		/* P */
 +				  24, 3,	/* mux */
@@ -682,6 +708,21 @@ index 000000000000..3fbb258f0354
 +
 +static SUNXI_CCU_GATE(bus_tcon_tv0_clk, "bus-tcon-tv0", "ahb3",
 +		      0xb9c, BIT(0), 0);
++static SUNXI_CCU_GATE(bus_tcon_tv1_clk, "bus-tcon-tv1", "ahb3",
++		      0xb9c, BIT(1), 0);
++
++static SUNXI_CCU_MP_WITH_MUX_GATE(tve0_clk, "tve0",
++				  tcon_tv_parents, 0xbb0,
++				  0, 4,		/* M */
++				  8, 2,		/* P */
++				  24, 3,	/* mux */
++				  BIT(31),	/* gate */
++				  CLK_SET_RATE_PARENT);
++
++static SUNXI_CCU_GATE(bus_tve_top_clk, "bus-tve-top", "ahb3",
++		      0xbbc, BIT(0), 0);
++static SUNXI_CCU_GATE(bus_tve0_clk, "bus-tve0", "ahb3",
++		      0xbbc, BIT(1), 0);
 +
 +static const char * const hdcp_parents[] = { "pll-periph0", "pll-periph1" };
 +static SUNXI_CCU_M_WITH_MUX_GATE(hdcp_clk, "hdcp", hdcp_parents, 0xc40,
@@ -716,9 +757,7 @@ index 000000000000..3fbb258f0354
 +static const struct clk_hw *pll_periph0_parents[] = {
 +	&pll_periph0_clk.common.hw
 +};
-+static CLK_FIXED_FACTOR_HWS(pll_periph0_4x_clk, "pll-periph0-4x",
-+			    pll_periph0_parents,
-+			    1, 4, 0);
++
 +static CLK_FIXED_FACTOR_HWS(pll_periph0_2x_clk, "pll-periph0-2x",
 +			    pll_periph0_parents,
 +			    1, 2, 0);
@@ -726,9 +765,7 @@ index 000000000000..3fbb258f0354
 +static const struct clk_hw *pll_periph1_parents[] = {
 +	&pll_periph1_clk.common.hw
 +};
-+static CLK_FIXED_FACTOR_HWS(pll_periph1_4x_clk, "pll-periph1-4x",
-+			    pll_periph1_parents,
-+			    1, 4, 0);
++
 +static CLK_FIXED_FACTOR_HWS(pll_periph1_2x_clk, "pll-periph1-2x",
 +			    pll_periph1_parents,
 +			    1, 2, 0);
@@ -855,7 +892,12 @@ index 000000000000..3fbb258f0354
 +	&bus_hdmi_clk.common,
 +	&bus_tcon_top_clk.common,
 +	&tcon_tv0_clk.common,
++	&tcon_tv1_clk.common,
 +	&bus_tcon_tv0_clk.common,
++	&bus_tcon_tv1_clk.common,
++	&tve0_clk.common,
++	&bus_tve_top_clk.common,
++	&bus_tve0_clk.common,
 +	&hdcp_clk.common,
 +	&bus_hdcp_clk.common,
 +};
@@ -868,10 +910,8 @@ index 000000000000..3fbb258f0354
 +		[CLK_PLL_DDR1]		= &pll_ddr1_clk.common.hw,
 +		[CLK_PLL_PERIPH0]	= &pll_periph0_clk.common.hw,
 +		[CLK_PLL_PERIPH0_2X]	= &pll_periph0_2x_clk.hw,
-+		[CLK_PLL_PERIPH0_4X]	= &pll_periph0_4x_clk.hw,
 +		[CLK_PLL_PERIPH1]	= &pll_periph1_clk.common.hw,
 +		[CLK_PLL_PERIPH1_2X]	= &pll_periph1_2x_clk.hw,
-+		[CLK_PLL_PERIPH1_4X]	= &pll_periph1_4x_clk.hw,
 +		[CLK_PLL_GPU]		= &pll_gpu_clk.common.hw,
 +		[CLK_PLL_VIDEO0]	= &pll_video0_clk.common.hw,
 +		[CLK_PLL_VIDEO0_4X]	= &pll_video0_4x_clk.hw,
@@ -984,7 +1024,12 @@ index 000000000000..3fbb258f0354
 +		[CLK_BUS_HDMI]		= &bus_hdmi_clk.common.hw,
 +		[CLK_BUS_TCON_TOP]	= &bus_tcon_top_clk.common.hw,
 +		[CLK_TCON_TV0]		= &tcon_tv0_clk.common.hw,
++		[CLK_TCON_TV1]		= &tcon_tv1_clk.common.hw,
 +		[CLK_BUS_TCON_TV0]	= &bus_tcon_tv0_clk.common.hw,
++		[CLK_BUS_TCON_TV1]	= &bus_tcon_tv1_clk.common.hw,
++		[CLK_TVE0]		= &tve0_clk.common.hw,
++		[CLK_BUS_TVE_TOP]	= &bus_tve_top_clk.common.hw,
++		[CLK_BUS_TVE0]		= &bus_tve0_clk.common.hw,
 +		[CLK_HDCP]		= &hdcp_clk.common.hw,
 +		[CLK_BUS_HDCP]		= &bus_hdcp_clk.common.hw,
 +	},
@@ -1036,7 +1081,6 @@ index 000000000000..3fbb258f0354
 +	[RST_USB_PHY1]		= { 0xa74, BIT(30) },
 +	[RST_USB_PHY2]		= { 0xa78, BIT(30) },
 +	[RST_USB_PHY3]		= { 0xa7c, BIT(30) },
-+
 +	[RST_BUS_OHCI0]		= { 0xa8c, BIT(16) },
 +	[RST_BUS_OHCI1]		= { 0xa8c, BIT(17) },
 +	[RST_BUS_OHCI2]		= { 0xa8c, BIT(18) },
@@ -1052,6 +1096,9 @@ index 000000000000..3fbb258f0354
 +	[RST_BUS_HDMI_SUB]	= { 0xb1c, BIT(17) },
 +	[RST_BUS_TCON_TOP]	= { 0xb5c, BIT(16) },
 +	[RST_BUS_TCON_TV0]	= { 0xb9c, BIT(16) },
++	[RST_BUS_TCON_TV1]	= { 0xb9c, BIT(17) },
++	[RST_BUS_TVE_TOP]	= { 0xbbc, BIT(16) },
++	[RST_BUS_TVE0]		= { 0xbbc, BIT(17) },
 +	[RST_BUS_HDCP]		= { 0xc4c, BIT(16) },
 +};
 +
@@ -1093,22 +1140,22 @@ index 000000000000..3fbb258f0354
 +	SUN50I_H616_USB3_CLK_REG,
 +};
 +
-+static int sun50i_h616_ccu_probe(struct platform_device *pdev)
++static void __init sun50i_h616_ccu_setup(struct device_node *node)
 +{
-+	struct resource *res;
 +	void __iomem *reg;
 +	u32 val;
 +	int i;
 +
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	reg = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(reg))
-+		return PTR_ERR(reg);
++	reg = of_io_request_and_map(node, 0, of_node_full_name(node));
++	if (IS_ERR(reg)) {
++		pr_err("%pOF: Could not map clock registers\n", node);
++		return;
++	}
 +
-+	/* Enable the lock bits on all PLLs */
++	/* Enable the lock bits and the output enable bits on all PLLs */
 +	for (i = 0; i < ARRAY_SIZE(pll_regs); i++) {
 +		val = readl(reg + pll_regs[i]);
-+		val |= BIT(29);
++		val |= BIT(29) | BIT(27);
 +		writel(val, reg + pll_regs[i]);
 +	}
 +
@@ -1132,7 +1179,7 @@ index 000000000000..3fbb258f0354
 +	for (i = 0; i < ARRAY_SIZE(usb2_clk_regs); i++) {
 +		val = readl(reg + usb2_clk_regs[i]);
 +		val &= ~GENMASK(25, 24);
-+		writel (val, reg + usb2_clk_regs[i]);
++		writel(val, reg + usb2_clk_regs[i]);
 +	}
 +
 +	/*
@@ -1152,29 +1199,19 @@ index 000000000000..3fbb258f0354
 +	val |= BIT(24);
 +	writel(val, reg + SUN50I_H616_HDMI_CEC_CLK_REG);
 +
-+	return sunxi_ccu_probe(pdev->dev.of_node, reg, &sun50i_h616_ccu_desc);
++	i = sunxi_ccu_probe(node, reg, &sun50i_h616_ccu_desc);
++	if (i)
++		pr_err("%pOF: probing clocks fails: %d\n", node, i);
 +}
 +
-+static const struct of_device_id sun50i_h616_ccu_ids[] = {
-+	{ .compatible = "allwinner,sun50i-h616-ccu",
-+		.data = &sun50i_h616_ccu_desc },
-+	{ }
-+};
-+
-+static struct platform_driver sun50i_h616_ccu_driver = {
-+	.probe	= sun50i_h616_ccu_probe,
-+	.driver	= {
-+		.name	= "sun50i-h616-ccu",
-+		.of_match_table	= sun50i_h616_ccu_ids,
-+	},
-+};
-+builtin_platform_driver(sun50i_h616_ccu_driver);
++CLK_OF_DECLARE(sun50i_h616_ccu, "allwinner,sun50i-h616-ccu",
++	       sun50i_h616_ccu_setup);
 diff --git a/drivers/clk/sunxi-ng/ccu-sun50i-h616.h b/drivers/clk/sunxi-ng/ccu-sun50i-h616.h
 new file mode 100644
-index 000000000000..da8f0b1206f9
+index 000000000000..dd671b413f22
 --- /dev/null
 +++ b/drivers/clk/sunxi-ng/ccu-sun50i-h616.h
-@@ -0,0 +1,58 @@ 
+@@ -0,0 +1,56 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
 + * Copyright 2020 Arm Ltd.
@@ -1194,52 +1231,50 @@ index 000000000000..da8f0b1206f9
 +/* PLL_PERIPH0 exported for PRCM */
 +
 +#define CLK_PLL_PERIPH0_2X	5
-+#define CLK_PLL_PERIPH0_4X	6
-+#define CLK_PLL_PERIPH1		7
-+#define CLK_PLL_PERIPH1_2X	8
-+#define CLK_PLL_PERIPH1_4X	9
-+#define CLK_PLL_GPU		10
-+#define CLK_PLL_VIDEO0		11
-+#define CLK_PLL_VIDEO0_4X	12
-+#define CLK_PLL_VIDEO1		13
-+#define CLK_PLL_VIDEO1_4X	14
-+#define CLK_PLL_VIDEO2		15
-+#define CLK_PLL_VIDEO2_4X	16
-+#define CLK_PLL_VE		17
-+#define CLK_PLL_DE		18
-+#define CLK_PLL_AUDIO_HS	19
-+#define CLK_PLL_AUDIO_1X	20
-+#define CLK_PLL_AUDIO_2X	21
-+#define CLK_PLL_AUDIO_4X	22
++#define CLK_PLL_PERIPH1		6
++#define CLK_PLL_PERIPH1_2X	7
++#define CLK_PLL_GPU		8
++#define CLK_PLL_VIDEO0		9
++#define CLK_PLL_VIDEO0_4X	10
++#define CLK_PLL_VIDEO1		11
++#define CLK_PLL_VIDEO1_4X	12
++#define CLK_PLL_VIDEO2		13
++#define CLK_PLL_VIDEO2_4X	14
++#define CLK_PLL_VE		15
++#define CLK_PLL_DE		16
++#define CLK_PLL_AUDIO_HS	17
++#define CLK_PLL_AUDIO_1X	18
++#define CLK_PLL_AUDIO_2X	19
++#define CLK_PLL_AUDIO_4X	20
 +
 +/* CPUX clock exported for DVFS */
 +
-+#define CLK_AXI			24
-+#define CLK_CPUX_APB		25
-+#define CLK_PSI_AHB1_AHB2	26
-+#define CLK_AHB3		27
++#define CLK_AXI			22
++#define CLK_CPUX_APB		23
++#define CLK_PSI_AHB1_AHB2	24
++#define CLK_AHB3		25
 +
 +/* APB1 clock exported for PIO */
 +
-+#define CLK_APB2		29
-+#define CLK_MBUS		30
++#define CLK_APB2		27
++#define CLK_MBUS		28
 +
 +/* All module clocks and bus gates are exported except DRAM */
 +
-+#define CLK_DRAM		51
++#define CLK_DRAM		49
 +
-+#define CLK_BUS_DRAM		58
++#define CLK_BUS_DRAM		56
 +
 +#define CLK_NUMBER		(CLK_BUS_HDCP + 1)
 +
 +#endif /* _CCU_SUN50I_H616_H_ */
 diff --git a/include/dt-bindings/clock/sun50i-h616-ccu.h b/include/dt-bindings/clock/sun50i-h616-ccu.h
 new file mode 100644
-index 000000000000..a9cc8844e3a9
+index 000000000000..4fc08b0df2f3
 --- /dev/null
 +++ b/include/dt-bindings/clock/sun50i-h616-ccu.h
-@@ -0,0 +1,110 @@ 
-+// SPDX-License-Identifier: (GPL-2.0+ or MIT)
+@@ -0,0 +1,115 @@
++/* SPDX-License-Identifier: (GPL-2.0+ or MIT) */
 +/*
 + * Copyright (C) 2020 Arm Ltd.
 + */
@@ -1249,115 +1284,120 @@ index 000000000000..a9cc8844e3a9
 +
 +#define CLK_PLL_PERIPH0		4
 +
-+#define CLK_CPUX		23
++#define CLK_CPUX		21
 +
-+#define CLK_APB1		28
++#define CLK_APB1		26
 +
-+#define CLK_DE			31
-+#define CLK_BUS_DE		32
-+#define CLK_DEINTERLACE		33
-+#define CLK_BUS_DEINTERLACE	34
-+#define CLK_G2D			35
-+#define CLK_BUS_G2D		36
-+#define CLK_GPU0		37
-+#define CLK_BUS_GPU		38
-+#define CLK_GPU1		39
-+#define CLK_CE			40
-+#define CLK_BUS_CE		41
-+#define CLK_VE			42
-+#define CLK_BUS_VE		43
-+#define CLK_BUS_DMA		44
-+#define CLK_BUS_HSTIMER		45
-+#define CLK_AVS			46
-+#define CLK_BUS_DBG		47
-+#define CLK_BUS_PSI		48
-+#define CLK_BUS_PWM		49
-+#define CLK_BUS_IOMMU		50
++#define CLK_DE			29
++#define CLK_BUS_DE		30
++#define CLK_DEINTERLACE		31
++#define CLK_BUS_DEINTERLACE	32
++#define CLK_G2D			33
++#define CLK_BUS_G2D		34
++#define CLK_GPU0		35
++#define CLK_BUS_GPU		36
++#define CLK_GPU1		37
++#define CLK_CE			38
++#define CLK_BUS_CE		39
++#define CLK_VE			40
++#define CLK_BUS_VE		41
++#define CLK_BUS_DMA		42
++#define CLK_BUS_HSTIMER		43
++#define CLK_AVS			44
++#define CLK_BUS_DBG		45
++#define CLK_BUS_PSI		46
++#define CLK_BUS_PWM		47
++#define CLK_BUS_IOMMU		48
 +
-+#define CLK_MBUS_DMA		52
-+#define CLK_MBUS_VE		53
-+#define CLK_MBUS_CE		54
-+#define CLK_MBUS_TS		55
-+#define CLK_MBUS_NAND		56
-+#define CLK_MBUS_G2D		57
++#define CLK_MBUS_DMA		50
++#define CLK_MBUS_VE		51
++#define CLK_MBUS_CE		52
++#define CLK_MBUS_TS		53
++#define CLK_MBUS_NAND		54
++#define CLK_MBUS_G2D		55
 +
-+#define CLK_NAND0		59
-+#define CLK_NAND1		60
-+#define CLK_BUS_NAND		61
-+#define CLK_MMC0		62
-+#define CLK_MMC1		63
-+#define CLK_MMC2		64
-+#define CLK_BUS_MMC0		65
-+#define CLK_BUS_MMC1		66
-+#define CLK_BUS_MMC2		67
-+#define CLK_BUS_UART0		68
-+#define CLK_BUS_UART1		69
-+#define CLK_BUS_UART2		70
-+#define CLK_BUS_UART3		71
-+#define CLK_BUS_UART4		72
-+#define CLK_BUS_UART5		73
-+#define CLK_BUS_I2C0		74
-+#define CLK_BUS_I2C1		75
-+#define CLK_BUS_I2C2		76
-+#define CLK_BUS_I2C3		77
-+#define CLK_BUS_I2C4		78
-+#define CLK_SPI0		79
-+#define CLK_SPI1		80
-+#define CLK_BUS_SPI0		81
-+#define CLK_BUS_SPI1		82
-+#define CLK_EMAC_25M		83
-+#define CLK_BUS_EMAC0		84
-+#define CLK_BUS_EMAC1		85
-+#define CLK_TS			86
-+#define CLK_BUS_TS		87
-+#define CLK_BUS_THS		88
-+#define CLK_SPDIF		89
-+#define CLK_BUS_SPDIF		90
-+#define CLK_DMIC		91
-+#define CLK_BUS_DMIC		92
-+#define CLK_AUDIO_CODEC_1X	93
-+#define CLK_AUDIO_CODEC_4X	94
-+#define CLK_BUS_AUDIO_CODEC	95
-+#define CLK_AUDIO_HUB		96
-+#define CLK_BUS_AUDIO_HUB	97
-+#define CLK_USB_OHCI0		98
-+#define CLK_USB_PHY0		99
-+#define CLK_USB_OHCI1		100
-+#define CLK_USB_PHY1		101
-+#define CLK_USB_OHCI2		102
-+#define CLK_USB_PHY2		103
-+#define CLK_USB_OHCI3		104
-+#define CLK_USB_PHY3		105
-+#define CLK_BUS_OHCI0		106
-+#define CLK_BUS_OHCI1		107
-+#define CLK_BUS_OHCI2		108
-+#define CLK_BUS_OHCI3		109
-+#define CLK_BUS_EHCI0		110
-+#define CLK_BUS_EHCI1		111
-+#define CLK_BUS_EHCI2		112
-+#define CLK_BUS_EHCI3		113
-+#define CLK_BUS_OTG		114
-+#define CLK_BUS_KEYADC		115
-+#define CLK_HDMI		116
-+#define CLK_HDMI_SLOW		117
-+#define CLK_HDMI_CEC		118
-+#define CLK_BUS_HDMI		119
-+#define CLK_BUS_TCON_TOP	120
-+#define CLK_TCON_TV0		121
-+#define CLK_BUS_TCON_TV0	122
-+#define CLK_HDCP		123
-+#define CLK_BUS_HDCP		124
++#define CLK_NAND0		57
++#define CLK_NAND1		58
++#define CLK_BUS_NAND		59
++#define CLK_MMC0		60
++#define CLK_MMC1		61
++#define CLK_MMC2		62
++#define CLK_BUS_MMC0		63
++#define CLK_BUS_MMC1		64
++#define CLK_BUS_MMC2		65
++#define CLK_BUS_UART0		66
++#define CLK_BUS_UART1		67
++#define CLK_BUS_UART2		68
++#define CLK_BUS_UART3		69
++#define CLK_BUS_UART4		70
++#define CLK_BUS_UART5		71
++#define CLK_BUS_I2C0		72
++#define CLK_BUS_I2C1		73
++#define CLK_BUS_I2C2		74
++#define CLK_BUS_I2C3		75
++#define CLK_BUS_I2C4		76
++#define CLK_SPI0		77
++#define CLK_SPI1		78
++#define CLK_BUS_SPI0		79
++#define CLK_BUS_SPI1		80
++#define CLK_EMAC_25M		81
++#define CLK_BUS_EMAC0		82
++#define CLK_BUS_EMAC1		83
++#define CLK_TS			84
++#define CLK_BUS_TS		85
++#define CLK_BUS_THS		86
++#define CLK_SPDIF		87
++#define CLK_BUS_SPDIF		88
++#define CLK_DMIC		89
++#define CLK_BUS_DMIC		90
++#define CLK_AUDIO_CODEC_1X	91
++#define CLK_AUDIO_CODEC_4X	92
++#define CLK_BUS_AUDIO_CODEC	93
++#define CLK_AUDIO_HUB		94
++#define CLK_BUS_AUDIO_HUB	95
++#define CLK_USB_OHCI0		96
++#define CLK_USB_PHY0		97
++#define CLK_USB_OHCI1		98
++#define CLK_USB_PHY1		99
++#define CLK_USB_OHCI2		100
++#define CLK_USB_PHY2		101
++#define CLK_USB_OHCI3		102
++#define CLK_USB_PHY3		103
++#define CLK_BUS_OHCI0		104
++#define CLK_BUS_OHCI1		105
++#define CLK_BUS_OHCI2		106
++#define CLK_BUS_OHCI3		107
++#define CLK_BUS_EHCI0		108
++#define CLK_BUS_EHCI1		109
++#define CLK_BUS_EHCI2		110
++#define CLK_BUS_EHCI3		111
++#define CLK_BUS_OTG		112
++#define CLK_BUS_KEYADC		113
++#define CLK_HDMI		114
++#define CLK_HDMI_SLOW		115
++#define CLK_HDMI_CEC		116
++#define CLK_BUS_HDMI		117
++#define CLK_BUS_TCON_TOP	118
++#define CLK_TCON_TV0		119
++#define CLK_TCON_TV1		120
++#define CLK_BUS_TCON_TV0	121
++#define CLK_BUS_TCON_TV1	122
++#define CLK_TVE0		123
++#define CLK_BUS_TVE_TOP		124
++#define CLK_BUS_TVE0		125
++#define CLK_HDCP		126
++#define CLK_BUS_HDCP		127
 +
 +#endif /* _DT_BINDINGS_CLK_SUN50I_H616_H_ */
 diff --git a/include/dt-bindings/reset/sun50i-h616-ccu.h b/include/dt-bindings/reset/sun50i-h616-ccu.h
 new file mode 100644
-index 000000000000..1c992cfbbbab
+index 000000000000..cb6285a8d128
 --- /dev/null
 +++ b/include/dt-bindings/reset/sun50i-h616-ccu.h
-@@ -0,0 +1,67 @@ 
-+// SPDX-License-Identifier: (GPL-2.0+ or MIT)
+@@ -0,0 +1,70 @@
++/* SPDX-License-Identifier: (GPL-2.0+ or MIT) */
 +/*
-+ * Copyright (C) 2017 Icenowy Zheng <icenowy@aosc.io>
++ * Copyright (C) 2020 Arm Ltd.
 + */
 +
 +#ifndef _DT_BINDINGS_RESET_SUN50I_H616_H_
@@ -1418,7 +1458,13 @@ index 000000000000..1c992cfbbbab
 +#define RST_BUS_HDMI_SUB	52
 +#define RST_BUS_TCON_TOP	53
 +#define RST_BUS_TCON_TV0	54
-+#define RST_BUS_HDCP		55
-+#define RST_BUS_KEYADC		56
++#define RST_BUS_TCON_TV1	55
++#define RST_BUS_TVE_TOP		56
++#define RST_BUS_TVE0		57
++#define RST_BUS_HDCP		58
++#define RST_BUS_KEYADC		59
 +
 +#endif /* _DT_BINDINGS_RESET_SUN50I_H616_H_ */
+-- 
+2.25.1
+

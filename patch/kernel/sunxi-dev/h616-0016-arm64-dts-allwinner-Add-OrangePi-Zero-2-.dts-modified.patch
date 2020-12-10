@@ -1,8 +1,29 @@
+From 757cf3a30bd5a2e5648ccb9068944399dc6849e1 Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Fri, 27 Nov 2020 15:28:40 +0000
+Subject: [PATCH 16/16] arm64: dts: allwinner: Add OrangePi Zero 2 .dts
+
+The OrangePi Zero 2 is a development board with the new H616 SoC.
+
+It features the usual connectors used on those small boards, and comes
+with the AXP305, which seems to be compatible with the AXP805.
+
+For more details see: http://linux-sunxi.org/Xunlong_Orange_Pi_Zero2
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+---
+ arch/arm64/boot/dts/allwinner/Makefile        |   1 +
+ .../allwinner/sun50i-h616-orangepi-zero2.dts  | 240 ++++++++++++++++++
+ 2 files changed, 241 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/allwinner/sun50i-h616-orangepi-zero2.dts
+
+
+
 diff --git a/arch/arm64/boot/dts/allwinner/Makefile b/arch/arm64/boot/dts/allwinner/Makefile
-index 211d1e9d4701..0cf8299b1ce7 100644
+index d3eab3b57..d284be1e2 100644
 --- a/arch/arm64/boot/dts/allwinner/Makefile
 +++ b/arch/arm64/boot/dts/allwinner/Makefile
-@@ -35,6 +35,7 @@  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-orangepi-one-plus.dtb
+@@ -38,6 +38,7 @@ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-orangepi-prime.dtb
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-orangepi-zero-plus.dtb
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h5-orangepi-zero-plus2.dtb
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-beelink-gs1.dtb
@@ -10,12 +31,13 @@ index 211d1e9d4701..0cf8299b1ce7 100644
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-orangepi-3.dtb
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-orangepi-lite2.dtb
  dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h6-orangepi-one-plus.dtb
+--
 diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h616-orangepi-zero2.dts b/arch/arm64/boot/dts/allwinner/sun50i-h616-orangepi-zero2.dts
 new file mode 100644
-index 000000000000..814f5b4fec7c
+index 000000000000..a9a7027f1242
 --- /dev/null
 +++ b/arch/arm64/boot/dts/allwinner/sun50i-h616-orangepi-zero2.dts
-@@ -0,0 +1,228 @@ 
+@@ -0,0 +1,240 @@
 +// SPDX-License-Identifier: (GPL-2.0+ or MIT)
 +/*
 + * Copyright (C) 2020 Arm Ltd.
@@ -27,6 +49,7 @@ index 000000000000..814f5b4fec7c
 +
 +#include <dt-bindings/gpio/gpio.h>
 +#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/leds/common.h>
 +
 +/ {
 +	model = "OrangePi Zero2";
@@ -45,14 +68,16 @@ index 000000000000..814f5b4fec7c
 +		compatible = "gpio-leds";
 +
 +		power {
-+			label = "orangepi:red:power";
-+			gpios = <&pio 2 13 GPIO_ACTIVE_HIGH>; /* PC13 */
++			function = LED_FUNCTION_POWER;
++			color = <LED_COLOR_ID_RED>;
++			gpios = <&pio 2 12 GPIO_ACTIVE_HIGH>; /* PC12 */
 +			default-state = "on";
 +		};
 +
 +		status {
-+			label = "orangepi:green:status";
-+			gpios = <&pio 2 12 GPIO_ACTIVE_HIGH>; /* PC12 */
++			function = LED_FUNCTION_STATUS;
++			color = <LED_COLOR_ID_GREEN>;
++			gpios = <&pio 2 13 GPIO_ACTIVE_HIGH>; /* PC13 */
 +		};
 +	};
 +
@@ -70,6 +95,7 @@ index 000000000000..814f5b4fec7c
 +		regulator-name = "usb1-vbus";
 +		regulator-min-microvolt = <5000000>;
 +		regulator-max-microvolt = <5000000>;
++		vin-supply = <&reg_vcc5v>;
 +		enable-active-high;
 +		gpio = <&pio 2 16 GPIO_ACTIVE_HIGH>; /* PC16 */
 +		status = "okay";
@@ -127,11 +153,6 @@ index 000000000000..814f5b4fec7c
 +			     "x-powers,axp806";
 +		reg = <0x36>;
 +
-+		/* dummy interrupt to appease the driver for now */
-+		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-controller;
-+		#interrupt-cells = <1>;
-+
 +		x-powers,self-working-mode;
 +		vina-supply = <&reg_vcc5v>;
 +		vinb-supply = <&reg_vcc5v>;
@@ -150,13 +171,15 @@ index 000000000000..814f5b4fec7c
 +				regulator-name = "vcc-sys";
 +			};
 +
-+			reg_aldo2: aldo2 {
++			reg_aldo2: aldo2 {	/* 3.3V on headers */
++				regulator-always-on;
 +				regulator-min-microvolt = <3300000>;
 +				regulator-max-microvolt = <3300000>;
 +				regulator-name = "vcc3v3-ext";
 +			};
 +
-+			reg_aldo3: aldo3 {
++			reg_aldo3: aldo3 {	/* 3.3V on headers */
++				regulator-always-on;
 +				regulator-min-microvolt = <3300000>;
 +				regulator-max-microvolt = <3300000>;
 +				regulator-name = "vcc3v3-ext2";
@@ -228,6 +251,18 @@ index 000000000000..814f5b4fec7c
 +	};
 +};
 +
++&spi0  {
++	status = "okay";
++
++	flash@0 {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		compatible = "jedec,spi-nor";
++		reg = <0>;
++		spi-max-frequency = <40000000>;
++	};
++};
++
 +&uart0 {
 +	pinctrl-names = "default";
 +	pinctrl-0 = <&uart0_ph_pins>;
@@ -235,12 +270,14 @@ index 000000000000..814f5b4fec7c
 +};
 +
 +&usbotg {
-+	dr_mode = "otg";
++	dr_mode = "peripheral";
 +	status = "okay";
 +};
 +
 +&usbphy {
-+	usb0_vbus-supply = <&reg_vcc5v>;
 +	usb1_vbus-supply = <&reg_usb1_vbus>;
 +	status = "okay";
 +};
+-- 
+2.25.1
+

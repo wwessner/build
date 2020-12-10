@@ -1,0 +1,27 @@
+From 4ca426eacf7863430b4f7bb927e6fc04308b2de3 Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Wed, 2 Dec 2020 23:29:53 +0000
+Subject: [PATCH 05/16] dt-bindings: clk: sunxi-ccu: Add compatible string for
+ Allwinner H616
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+---
+ .../devicetree/bindings/clock/allwinner,sun4i-a10-ccu.yaml      | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/clock/allwinner,sun4i-a10-ccu.yaml b/Documentation/devicetree/bindings/clock/allwinner,sun4i-a10-ccu.yaml
+index 3b45344ed758..b7e891803bb4 100644
+--- a/Documentation/devicetree/bindings/clock/allwinner,sun4i-a10-ccu.yaml
++++ b/Documentation/devicetree/bindings/clock/allwinner,sun4i-a10-ccu.yaml
+@@ -41,6 +41,8 @@ properties:
+       - allwinner,sun50i-h5-ccu
+       - allwinner,sun50i-h6-ccu
+       - allwinner,sun50i-h6-r-ccu
++      - allwinner,sun50i-h616-ccu
++      - allwinner,sun50i-h616-r-ccu
+       - allwinner,suniv-f1c100s-ccu
+       - nextthing,gr8-ccu
+ 
+-- 
+2.25.1
+

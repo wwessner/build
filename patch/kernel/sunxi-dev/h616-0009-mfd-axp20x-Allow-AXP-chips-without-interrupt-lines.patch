@@ -1,0 +1,51 @@
+From b070c55dfaa0e42ea19ac34e467f1b920568478b Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Mon, 7 Dec 2020 12:30:21 +0000
+Subject: [PATCH 09/16] mfd: axp20x: Allow AXP chips without interrupt lines
+
+Currently the AXP chip requires to have its IRQ line connected to some
+interrupt controller, and will fail probing when this is not the case.
+
+On a new Allwinner SoC (H616) there is no NMI pin anymore, so the
+interrupt functionality of the AXP chip is simply not available.
+
+Check whether the DT describes the AXP chip as an interrupt controller
+before trying to register the irqchip, to avoid probe failures on
+setups without an interrupt.
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+---
+ drivers/mfd/axp20x.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
+index aa59496e4376..a52595c49d40 100644
+--- a/drivers/mfd/axp20x.c
++++ b/drivers/mfd/axp20x.c
+@@ -959,12 +959,17 @@ int axp20x_device_probe(struct axp20x_dev *axp20x)
+ 				     AXP806_REG_ADDR_EXT_ADDR_SLAVE_MODE);
+ 	}
+ 
+-	ret = regmap_add_irq_chip(axp20x->regmap, axp20x->irq,
+-			  IRQF_ONESHOT | IRQF_SHARED | axp20x->irq_flags,
+-			   -1, axp20x->regmap_irq_chip, &axp20x->regmap_irqc);
+-	if (ret) {
+-		dev_err(axp20x->dev, "failed to add irq chip: %d\n", ret);
+-		return ret;
++	if (!axp20x->dev->of_node ||
++	    of_property_read_bool(axp20x->dev->of_node, "interrupt-controller")) {
++		ret = regmap_add_irq_chip(axp20x->regmap, axp20x->irq,
++				IRQF_ONESHOT | IRQF_SHARED | axp20x->irq_flags,
++				-1, axp20x->regmap_irq_chip,
++				&axp20x->regmap_irqc);
++		if (ret) {
++			dev_err(axp20x->dev, "failed to add irq chip: %d\n",
++				ret);
++			return ret;
++		}
+ 	}
+ 
+ 	ret = mfd_add_devices(axp20x->dev, -1, axp20x->cells,
+-- 
+2.25.1
+
