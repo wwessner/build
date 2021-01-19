@@ -42,7 +42,7 @@ elif [[ $BOOTCONFIG == *3328* ]]; then
 
 	BOOT_RK3328_USE_AYUFAN_ATF=yes
 
-elif [[ $BOARD == pinebook-pro ]]; then
+elif [[ $BOARD == pinebook-pro || $BOARD == rockpro64 ]]; then
 
 	BOOT_USE_MAINLINE_ATF=yes
 	BOOT_SOC=rk3399
@@ -66,12 +66,12 @@ elif [[ $BOARD == station-p1 ]]; then
 	MINILOADER_BLOB='rk33/rk3399_miniloader_v1.19.bin'
 	BL31_BLOB='rk33/rk3399_bl31_v1.30.elf'
 
-elif [[ $BOARD == rockpro64 ]]; then
-
-	BOOT_USE_TPL_SPL_BLOB=yes
-	BOOT_SUPPORT_SPI=yes
-	BOOT_SOC=rk3399
-	BL31_BLOB='rk33/rk3399_bl31_v1.30.elf'
+# elif [[ $BOARD == rockpro64 ]]; then
+#
+#	BOOT_USE_TPL_SPL_BLOB=yes
+#	BOOT_SUPPORT_SPI=yes
+#	BOOT_SOC=rk3399
+#	BL31_BLOB='rk33/rk3399_bl31_v1.30.elf'
 
 elif [[ $BOARD == rockpi-s ]]; then
 
