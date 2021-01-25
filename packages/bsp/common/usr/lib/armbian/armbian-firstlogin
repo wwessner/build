@@ -55,12 +55,14 @@ set_shell()
 				esac
 			done
 	fi
+	SHELL_PATH=$(grep /$USER_SHELL$ /etc/shells | tail -1)
+
 	chsh -s $(grep -iF "/$USER_SHELL" /etc/shells | tail -1)
 	echo -e "\nShell: \x1B[92m${USER_SHELL^^}\x1B[0m"
 
 	# change shell for future users
-	sed -i "s/^SHELL=.*/SHELL=\/usr\/bin\/${USER_SHELL}/" /etc/default/useradd
-	sed -i "s/^DSHELL=.*/DSHELL=\/usr\/bin\/${USER_SHELL}/" /etc/adduser.conf
+	sed -i "s|^SHELL=.*|SHELL=${SHELL_PATH}|" /etc/default/useradd
+	sed -i "s|^DSHELL=.*|DSHELL=${SHELL_PATH}|" /etc/adduser.conf
 
 }
 
@@ -315,8 +317,8 @@ if [[ -f /root/.not_logged_in_yet && -n $(tty) ]]; then
 			[[ -x $(which budgie-desktop) ]] && sed -i "s/user-session.*/user-session=budgie-desktop/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
 			[[ -x $(which budgie-desktop) ]] && sed -i "s/user-session.*/user-session=budgie-desktop/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf		
 			# select deepin session
-			[[ -x $(which deepin-wm) ]] && sed -i "s/user-session.*/user-session=deepin-wm/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
-			[[ -x $(which deepin-wm) ]] && sed -i "s/user-session.*/user-session=deepin-wm/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
+			[[ -x $(which deepin-wm) ]] && sed -i "s/user-session.*/user-session=deepin.desktop/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
+			[[ -x $(which deepin-wm) ]] && sed -i "s/user-session.*/user-session=deepin.desktop/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
 
 			ln -sf /lib/systemd/system/lightdm.service /etc/systemd/system/display-manager.service
 
