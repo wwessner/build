@@ -1,0 +1,47 @@
+diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
+index 7498cde4899b..65f60e255e8c 100644
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -665,41 +665,7 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
+ 	imx6ulz-14x14-evk-gpmi-weim.dtb \
+ 	imx6ulz-14x14-evk-emmc.dtb
+ dtb-$(CONFIG_SOC_IMX7D) += \
+-	imx7d-cl-som-imx7.dtb \
+-	imx7d-colibri-aster.dtb \
+-	imx7d-colibri-iris.dtb \
+-	imx7d-colibri-iris-v2.dtb \
+-	imx7d-colibri-emmc-aster.dtb \
+-	imx7d-colibri-emmc-iris.dtb \
+-	imx7d-colibri-emmc-iris-v2.dtb \
+-	imx7d-colibri-emmc-eval-v3.dtb \
+-	imx7d-colibri-eval-v3.dtb \
+-	imx7d-mba7.dtb \
+-	imx7d-meerkat96.dtb \
+-	imx7d-nitrogen7.dtb \
+-	imx7d-pico-hobbit.dtb \
+-	imx7d-pico-pi.dtb \
+-	imx7d-sbc-imx7.dtb \
+-	imx7s-colibri-aster.dtb \
+-	imx7s-colibri-iris.dtb \
+-	imx7s-colibri-iris-v2.dtb \
+-	imx7d-sdb.dtb \
+-	imx7d-sdb-epdc.dtb \
+-	imx7d-sdb-mipi-dsi.dtb \
+-	imx7d-sdb-gpmi-weim.dtb \
+-	imx7d-sdb-m4.dtb \
+-	imx7d-sdb-qspi.dtb \
+-	imx7d-sdb-reva.dtb \
+-	imx7d-sdb-sht11.dtb \
+-	imx7d-sdb-usd-wifi.dtb \
+-	imx7d-sdb-pcie-ep.dtb \
+-	imx7d-12x12-lpddr3-val.dtb \
+-	imx7d-12x12-lpddr3-val-sai.dtb \
+-	imx7d-zii-rmu2.dtb \
+-	imx7d-zii-rpu2.dtb \
+-	imx7s-colibri-eval-v3.dtb \
+-	imx7s-mba7.dtb \
+-	imx7s-warp.dtb
++	imx7d-fpq-v0.dtb
+ dtb-$(CONFIG_SOC_IMX7ULP) += \
+ 	imx7ulp-evk.dtb \
+ 	imx7ulp-evk-ft5416.dtb \
