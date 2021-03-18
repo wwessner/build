@@ -121,7 +121,7 @@ create_rootfs_cache()
 		display_alert "Checking for local cache" "$display_name" "info"
 
 		if [[ ! -f $cache_fname && "$ROOT_FS_CREATE_ONLY" != "force" ]]; then
-			display_alert "searching on servers"
+			display_alert "searching on servers $cache_name"
 			download_and_verify "_rootfs" "$cache_name"
 		fi
 
