@@ -21,7 +21,7 @@ USEALLCORES=yes # Use all CPU cores for compiling
 [[ -z $EXIT_PATCHING_ERROR ]] && EXIT_PATCHING_ERROR="" # exit patching if failed
 [[ -z $HOST ]] && HOST="$BOARD" # set hostname to the board
 cd "${SRC}" || exit
-ROOTFSCACHE_VERSION=3
+ROOTFSCACHE_VERSION=4
 CHROOT_CACHE_VERSION=7
 BUILD_REPOSITORY_URL=$(improved_git remote get-url $(improved_git remote 2>/dev/null | grep origin) 2>/dev/null)
 BUILD_REPOSITORY_COMMIT=$(improved_git describe --match=d_e_a_d_b_e_e_f --always --dirty 2>/dev/null)
@@ -64,6 +64,7 @@ fi
 case $MAINLINE_MIRROR in
 	google) MAINLINE_KERNEL_SOURCE='https://kernel.googlesource.com/pub/scm/linux/kernel/git/stable/linux-stable' ;;
 	tuna) MAINLINE_KERNEL_SOURCE='https://mirrors.tuna.tsinghua.edu.cn/git/linux-stable.git' ;;
+	bfsu) MAINLINE_KERNEL_SOURCE='https://mirrors.bfsu.edu.cn/git/linux-stable.git' ;;
 	*) MAINLINE_KERNEL_SOURCE='git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git' ;;
 esac
 MAINLINE_KERNEL_DIR='linux-mainline'
@@ -71,7 +72,7 @@ MAINLINE_KERNEL_DIR='linux-mainline'
 if [[ $USE_GITHUB_UBOOT_MIRROR == yes ]]; then
 	MAINLINE_UBOOT_SOURCE='https://github.com/RobertCNelson/u-boot'
 else
-	MAINLINE_UBOOT_SOURCE='https://gitlab.denx.de/u-boot/u-boot.git'
+	MAINLINE_UBOOT_SOURCE='https://source.denx.de/u-boot/u-boot.git'
 fi
 MAINLINE_UBOOT_DIR='u-boot'
 
@@ -491,16 +492,22 @@ DEBIAN_MIRROR='deb.debian.org/debian'
 DEBIAN_SECURTY='security.debian.org/'
 UBUNTU_MIRROR='ports.ubuntu.com/'
 
-if [[ $DOWNLOAD_MIRROR == china ]] ; then
+if [[ $DOWNLOAD_MIRROR == "china" ]] ; then
 	DEBIAN_MIRROR='mirrors.tuna.tsinghua.edu.cn/debian'
 	DEBIAN_SECURTY='mirrors.tuna.tsinghua.edu.cn/debian-security'
 	UBUNTU_MIRROR='mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/'
 fi
 
+if [[ $DOWNLOAD_MIRROR == "bfsu" ]] ; then
+	DEBIAN_MIRROR='mirrors.bfsu.edu.cn/debian'
+	DEBIAN_SECURTY='mirrors.bfsu.edu.cn/debian-security'
+	UBUNTU_MIRROR='mirrors.bfsu.edu.cn/ubuntu-ports/'
+fi
+
 # don't use mirrors that throws garbage on 404
 while true; do
 
-	ARMBIAN_MIRROR=$(wget -SO- -T 1 -t 1 https://redirect.armbian.com 2>&1 | egrep -i "Location" | awk '{print $2}' | uniq )
+	ARMBIAN_MIRROR=$(wget -SO- -T 1 -t 1 https://redirect.armbian.com 2>&1 | egrep -i "Location" | awk '{print $2}' | head -1)
 	[[ ${ARMBIAN_MIRROR} != *armbian.hosthatch* ]] && break
 
 done
