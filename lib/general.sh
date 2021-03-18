@@ -1249,7 +1249,6 @@ function webseed ()
 
 download_and_verify()
 {
-	set -x
 
 	local remotedir=$1
 	local filename=$2
@@ -1258,7 +1257,8 @@ download_and_verify()
         if [[ $DOWNLOAD_MIRROR == china ]]; then
 		local server="https://mirrors.tuna.tsinghua.edu.cn/armbian-releases/"
 	else
-		local server=${ARMBIAN_MIRROR}
+		#local server=${ARMBIAN_MIRROR}
+		local server="http://10.156.4.100/Armbian_Mirror/dl/"
         fi
 
 	if [[ -f ${localdir}/${dirname}/.download-complete ]]; then
@@ -1383,7 +1383,6 @@ download_and_verify()
 		fi
 
 	fi
-	set +x
 }
 
 

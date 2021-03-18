@@ -168,6 +168,7 @@ create_rootfs_cache()
 
 
 		display_alert "Installing base system" "Stage 1/2" "info"
+		display_alert "Debootstrap from" "$apt_mirror" "info"
 		eval 'debootstrap --variant=minbase --include=${DEBOOTSTRAP_LIST// /,} ${PACKAGE_LIST_EXCLUDE:+ --exclude=${PACKAGE_LIST_EXCLUDE// /,}} \
 			--arch=$ARCH --components=${DEBOOTSTRAP_COMPONENTS} --foreign $RELEASE $SDCARD/ $apt_mirror' \
 			${PROGRESS_LOG_TO_FILE:+' | tee -a $DEST/debug/debootstrap.log'} \
