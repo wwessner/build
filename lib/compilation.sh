@@ -128,7 +128,9 @@ compile_uboot()
 	cd "${ubootdir}" || exit
 	
 	# write toradex .config file
-	make colibri_imx7_defconfig
+	# make colibri_imx7_defconfig
+	# make $BOOTCONFIG
+	# set via BOOTCONFIG='colibri_imx7_defconfig' in imx7d.conf
 
 	# read uboot version
 	local version hash
