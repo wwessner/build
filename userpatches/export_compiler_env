@@ -1,0 +1,4 @@
+export ARCH=arm
+export DTC_FLAGS='-@'
+export CROSS_COMPILE=arm-linux-gnueabihf-
+export PATH=/home/grabner/mist/fresh/armbian.build/cache/toolchain/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf/bin/:/home/grabner/.cargo/bin:/home/grabner/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
