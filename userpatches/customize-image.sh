@@ -34,12 +34,15 @@ Main() {
 			;;
 		focal)
 			# your code here
-			apt-get install -yy vim-nox mtd-utils
+			apt-get install -yy mtd-utils aufs-tools vim-nox
 			cp /boot/dtb/imx7d-fpq-v0.dtb /boot/
 			rm -rf /boot/dtb*
 			cd /boot
 			ln -s  imx7d-fpq-v0.dtb dtb
 			cd /tmp
+			echo "ubi0:rootfs / ubifs rw,relatime,ubi=0,vol=3 0 1" > /etc/fstab
+			echo "tmpfs /tmp tmpfs defaults,nosuid 0 0" >> /etc/fstab
+			# echo "/dev/mmcblk0p1 /media/fpq ext2 defaults,noatime,nosuid 0 0" >> /etc/fstab
 			;;
 	esac
 } # Main
